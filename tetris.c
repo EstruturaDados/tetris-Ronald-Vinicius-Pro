@@ -1,55 +1,253 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
 
-// Desafio Tetris Stack
-// Tema 3 - Integração de Fila e Pilha
-// Este código inicial serve como base para o desenvolvimento do sistema de controle de peças.
-// Use as instruções de cada nível para desenvolver o desafio.
+#define TAM_FILA 5
+#define TAM_PILHA 3
+
+typedef struct {
+    char tipo;
+    int id;
+} Peca;
+
+/* ---------- GERAÇÃO AUTOMÁTICA ---------- */
+
+Peca gerarPeca() {
+    Peca p;
+    char tipos[] = {'I', 'O', 'T', 'L', 'J', 'S', 'Z'};
+    p.tipo = tipos[rand() % 7];
+    p.id = rand() % 10000;
+    return p;
+}
+
+/* ---------- FILA CIRCULAR ---------- */
+
+typedef struct {
+    Peca itens[TAM_FILA];
+    int ini, fim, qtd;
+} Fila;
+
+void initFila(Fila *f) {
+    f->ini = 0;
+    f->fim = 0;
+    f->qtd = 0;
+    for (int i = 0; i < TAM_FILA; i++) {
+        f->itens[i] = gerarPeca();
+        f->fim = (f->fim + 1) % TAM_FILA;
+        f->qtd++;
+    }
+}
+
+int filaCheia(Fila *f) {
+    return f->qtd == TAM_FILA;
+}
+
+int filaVazia(Fila *f) {
+    return f->qtd == 0;
+}
+
+Peca dequeue(Fila *f) {
+    Peca removida = f->itens[f->ini];
+    f->ini = (f->ini + 1) % TAM_FILA;
+    f->qtd--;
+    return removida;
+}
+
+void enqueue(Fila *f, Peca p) {
+    f->itens[f->fim] = p;
+    f->fim = (f->fim + 1) % TAM_FILA;
+    f->qtd++;
+}
+
+void exibirFila(Fila *f) {
+    printf("\nFila de peças:\n");
+    int idx = f->ini;
+    for (int i = 0; i < f->qtd; i++) {
+        Peca p = f->itens[idx];
+        printf("[%d] Tipo: %c | ID: %d\n", i, p.tipo, p.id);
+        idx = (idx + 1) % TAM_FILA;
+    }
+}
+
+/* ---------- PILHA ---------- */
+
+typedef struct {
+    Peca itens[TAM_PILHA];
+    int topo;
+} Pilha;
+
+void initPilha(Pilha *p) {
+    p->topo = -1;
+}
+
+int pilhaVazia(Pilha *p) {
+    return p->topo == -1;
+}
+
+int pilhaCheia(Pilha *p) {
+    return p->topo == TAM_PILHA - 1;
+}
+
+void push(Pilha *p, Peca x) {
+    p->topo++;
+    p->itens[p->topo] = x;
+}
+
+Peca pop(Pilha *p) {
+    Peca x = p->itens[p->topo];
+    p->topo--;
+    return x;
+}
+
+void exibirPilha(Pilha *p) {
+    printf("\nPilha de reserva:\n");
+    if (pilhaVazia(p)) {
+        printf("(vazia)\n");
+        return;
+    }
+    for (int i = p->topo; i >= 0; i--) {
+        printf("[%d] Tipo: %c | ID: %d\n", i, p->itens[i].tipo, p->itens[i].id);
+    }
+}
+
+/* ---------- SISTEMA DE DESFAZER ---------- */
+
+typedef struct {
+    Fila filaAntes;
+    Pilha pilhaAntes;
+    int valido;
+} Historico;
+
+void salvarEstado(Historico *h, Fila *f, Pilha *p) {
+    *h = (Historico){ *f, *p, 1 };
+}
+
+void desfazer(Historico *h, Fila *f, Pilha *p) {
+    if (!h->valido) {
+        printf("\nNenhuma ação para desfazer!\n");
+        return;
+    }
+    *f = h->filaAntes;
+    *p = h->pilhaAntes;
+    printf("\nAção desfeita!\n");
+    h->valido = 0;
+}
+
+/* ---------- INVERSÃO FILA <-> PILHA ---------- */
+
+void inverter(Fila *f, Pilha *p) {
+    Fila novaFila;
+    Pilha novaPilha;
+    initFila(&novaFila);
+    initPilha(&novaPilha);
+
+    novaFila.qtd = 0;
+    novaFila.ini = 0;
+    novaFila.fim = 0;
+
+    while (!pilhaVazia(p)) enqueue(&novaFila, pop(p));
+
+    while (!filaVazia(f)) push(&novaPilha, dequeue(f));
+
+    *f = novaFila;
+    *p = novaPilha;
+}
+
+/* ========================== MENU PRINCIPAL =========================== */
 
 int main() {
+    srand(time(NULL));
 
-    // 🧩 Nível Novato: Fila de Peças Futuras
-    //
-    // - Crie uma struct Peca com os campos: tipo (char) e id (int).
-    // - Implemente uma fila circular com capacidade para 5 peças.
-    // - Crie funções como inicializarFila(), enqueue(), dequeue(), filaCheia(), filaVazia().
-    // - Cada peça deve ser gerada automaticamente com um tipo aleatório e id sequencial.
-    // - Exiba a fila após cada ação com uma função mostrarFila().
-    // - Use um menu com opções como:
-    //      1 - Jogar peça (remover da frente)
-    //      0 - Sair
-    // - A cada remoção, insira uma nova peça ao final da fila.
+    Fila fila;
+    Pilha pilha;
+    Historico historico = {0};
 
+    initFila(&fila);
+    initPilha(&pilha);
 
+    int opc;
 
-    // 🧠 Nível Aventureiro: Adição da Pilha de Reserva
-    //
-    // - Implemente uma pilha linear com capacidade para 3 peças.
-    // - Crie funções como inicializarPilha(), push(), pop(), pilhaCheia(), pilhaVazia().
-    // - Permita enviar uma peça da fila para a pilha (reserva).
-    // - Crie um menu com opção:
-    //      2 - Enviar peça da fila para a reserva (pilha)
-    //      3 - Usar peça da reserva (remover do topo da pilha)
-    // - Exiba a pilha junto com a fila após cada ação com mostrarPilha().
-    // - Mantenha a fila sempre com 5 peças (repondo com gerarPeca()).
+    while (1) {
+        printf("\n===== TETRIS STACK — NÍVEL MESTRE =====\n");
+        printf("1 - Jogar peça\n");
+        printf("2 - Reservar peça (push)\n");
+        printf("3 - Usar peça reservada (pop)\n");
+        printf("4 - Trocar topo da pilha com frente da fila\n");
+        printf("5 - Desfazer última ação\n");
+        printf("6 - Inverter fila com pilha\n");
+        printf("0 - Sair\n");
+        printf("Escolha: ");
+        scanf("%d", &opc);
 
+        if (opc == 0) break;
 
-    // 🔄 Nível Mestre: Integração Estratégica entre Fila e Pilha
-    //
-    // - Implemente interações avançadas entre as estruturas:
-    //      4 - Trocar a peça da frente da fila com o topo da pilha
-    //      5 - Trocar os 3 primeiros da fila com as 3 peças da pilha
-    // - Para a opção 4:
-    //      Verifique se a fila não está vazia e a pilha tem ao menos 1 peça.
-    //      Troque os elementos diretamente nos arrays.
-    // - Para a opção 5:
-    //      Verifique se a pilha tem exatamente 3 peças e a fila ao menos 3.
-    //      Use a lógica de índice circular para acessar os primeiros da fila.
-    // - Sempre valide as condições antes da troca e informe mensagens claras ao usuário.
-    // - Use funções auxiliares, se quiser, para modularizar a lógica de troca.
-    // - O menu deve ficar assim:
-    //      4 - Trocar peça da frente com topo da pilha
-    //      5 - Trocar 3 primeiros da fila com os 3 da pilha
+        /* Salva estado para desfazer */
+        if (opc != 5) salvarEstado(&historico, &fila, &pilha);
 
+        switch (opc) {
+            case 1: {
+                if (filaVazia(&fila)) {
+                    printf("Fila vazia!\n");
+                    break;
+                }
+                Peca jogada = dequeue(&fila);
+                printf("\nJogou peça: %c (%d)\n", jogada.tipo, jogada.id);
+                enqueue(&fila, gerarPeca());
+            } break;
+
+            case 2: {
+                if (pilhaCheia(&pilha)) {
+                    printf("\nPilha cheia!\n");
+                    break;
+                }
+                if (filaVazia(&fila)) break;
+                Peca frente = dequeue(&fila);
+                push(&pilha, frente);
+                printf("\nPeça %c (%d) reservada!\n", frente.tipo, frente.id);
+                enqueue(&fila, gerarPeca());
+            } break;
+
+            case 3: {
+                if (pilhaVazia(&pilha)) {
+                    printf("\nPilha vazia!\n");
+                    break;
+                }
+                Peca usada = pop(&pilha);
+                printf("\nUsando peça reservada: %c (%d)\n", usada.tipo, usada.id);
+            } break;
+
+            case 4: {
+                if (pilhaVazia(&pilha) || filaVazia(&fila)) {
+                    printf("\nImpossível trocar!\n");
+                    break;
+                }
+                Peca topo = pop(&pilha);
+                Peca frente = dequeue(&fila);
+                push(&pilha, frente);
+                // recoloca topo na fila
+                fila.ini = (fila.ini - 1 + TAM_FILA) % TAM_FILA;
+                fila.itens[fila.ini] = topo;
+                fila.qtd++;
+                printf("\nPeças trocadas!\n");
+            } break;
+
+            case 5:
+                desfazer(&historico, &fila, &pilha);
+                break;
+
+            case 6:
+                inverter(&fila, &pilha);
+                printf("\nFila e pilha invertidas!\n");
+                break;
+
+            default:
+                printf("\nOpção inválida!\n");
+        }
+
+        exibirFila(&fila);
+        exibirPilha(&pilha);
+    }
 
     return 0;
 }
